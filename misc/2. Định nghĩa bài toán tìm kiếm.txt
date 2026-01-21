@@ -1,0 +1,81 @@
+Bài toán Vacuum World có thể được mô hình hóa như một bài toán tìm kiếm trong không gian trạng thái, trong đó mỗi trạng thái mô tả đầy đủ tình trạng của môi trường và tác nhân tại một thời điểm. Mục tiêu của bài toán là tìm ra một chuỗi hành động hợp lệ đưa tác nhân từ trạng thái ban đầu đến trạng thái đích với chi phí thấp nhất.
+
+2.1 Trạng thái (State)
+
+Một trạng thái được biểu diễn bởi bộ ba:
+
+State=(x,y,D)
+
+Trong đó:
+
+(x,y) là vị trí hiện tại của tác nhân trong lưới n × n
+
+D là tập hợp các ô còn bụi trong môi trường
+
+Mỗi trạng thái phản ánh đầy đủ thông tin cần thiết để xác định các hành động có thể thực hiện tiếp theo.
+
+2.2 Trạng thái ban đầu (Initial State)
+
+Trạng thái ban đầu 𝑆0​ được xác định bởi:
+
+Vị trí ban đầu của tác nhân (𝑥0,𝑦0)
+
+Phân bố bụi ban đầu trong môi trường
+
+Các giá trị này được thiết lập trước khi quá trình tìm kiếm bắt đầu và có thể thay đổi để phục vụ mục đích mô phỏng.
+
+2.3 Tập hành động (Actions)
+
+Tại mỗi trạng thái, tác nhân có thể thực hiện tập hành động sau:
+
+Up: Di chuyển lên một ô (nếu không vượt biên)
+
+Down: Di chuyển xuống một ô (nếu không vượt biên)
+
+Left: Di chuyển sang trái một ô (nếu không vượt biên)
+
+Right: Di chuyển sang phải một ô (nếu không vượt biên)
+
+Suck: Hút bụi tại ô hiện tại (nếu ô đó có bụi)
+
+Tập hành động khả dụng phụ thuộc vào vị trí hiện tại của tác nhân và trạng thái của ô đang đứng.
+
+2.4 Hàm chuyển trạng thái (Transition Function)
+
+Hàm chuyển trạng thái được định nghĩa là:
+
+Result(s,a)=s′
+
+Trong đó:
+
+s là trạng thái hiện tại
+
+a là hành động được thực hiện
+
+s′là trạng thái kế tiếp
+
+Cụ thể:
+
+Với các hành động di chuyển, vị trí của tác nhân thay đổi tương ứng nếu không chạm biên, tập các ô bụi giữ nguyên
+
+Với hành động Suck, nếu ô hiện tại có bụi thì ô đó được làm sạch và bị loại khỏi tập D
+
+Hàm chuyển trạng thái là xác định, mỗi cặp (s,a) chỉ sinh ra một trạng thái kế tiếp duy nhất.
+
+2.5 Kiểm tra trạng thái đích (Goal Test)
+
+Một trạng thái được xem là trạng thái đích nếu:
+
+D=∅
+
+tức là tất cả các ô trong môi trường đều sạch, không còn bụi.
+
+2.6 Chi phí đường đi (Path Cost)
+
+Chi phí đường đi được xác định dựa trên số lượng hành động mà tác nhân thực hiện.
+
+Mỗi hành động (di chuyển hoặc hút bụi) có chi phí bằng 1
+
+Tổng chi phí đường đi là tổng chi phí của tất cả các hành động từ trạng thái ban đầu đến trạng thái hiện tại
+
+Mục tiêu của bài toán là tìm ra đường đi có tổng chi phí nhỏ nhất dẫn đến trạng thái đích.

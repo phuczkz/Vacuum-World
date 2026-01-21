@@ -1,0 +1,73 @@
+Trong bài toán Vacuum World, tác nhân là một robot hút bụi hoạt động trong môi trường dạng lưới kích thước n × n. Tác nhân có nhiệm vụ làm sạch toàn bộ bụi trong môi trường thông qua việc di chuyển và hút bụi tại các ô.
+
+Việc đặc tả tác nhân được thực hiện theo mô hình PEAS, bao gồm: Performance measure, Environment, Actuators và Sensors.
+
+1.1 Performance Measure (Thước đo hiệu năng)
+
+Hiệu năng của tác nhân được đánh giá dựa trên các tiêu chí sau:
+
+Số lượng ô được làm sạch trong môi trường
+
+Số bước di chuyển của tác nhân
+
+Số lần thực hiện hành động hút bụi
+
+Thời gian hoàn thành quá trình làm sạch
+
+Trong đó, mục tiêu chính là tối đa hóa số ô sạch và tối thiểu hóa số hành động di chuyển, từ đó nâng cao hiệu quả hoạt động của tác nhân.
+
+1.2 Environment (Môi trường)
+
+Môi trường của bài toán là một lưới hai chiều kích thước n × n.
+Mỗi ô trong lưới có thể tồn tại ở một trong hai trạng thái:
+
+Có bụi
+
+Sạch
+
+Tác nhân chỉ có thể đứng tại một ô tại mỗi thời điểm và không thể di chuyển ra ngoài biên của môi trường. Trạng thái ban đầu của môi trường, bao gồm vị trí của tác nhân và phân bố bụi, có thể được thay đổi để phục vụ việc mô phỏng.
+
+1.3 Actuators (Bộ chấp hành)
+
+Tác nhân có thể thực hiện các hành động sau:
+
+Di chuyển lên (Up)
+
+Di chuyển xuống (Down)
+
+Di chuyển sang trái (Left)
+
+Di chuyển sang phải (Right)
+
+Hút bụi tại ô hiện tại (Suck)
+
+Các hành động này cho phép tác nhân tương tác trực tiếp với môi trường và thực hiện nhiệm vụ làm sạch.
+
+1.4 Sensors (Cảm biến)
+
+Tác nhân được trang bị các cảm biến để thu nhận thông tin từ môi trường, bao gồm:
+
+Cảm biến nhận biết trạng thái của ô hiện tại (có bụi hay sạch)
+
+Cảm biến xác định vị trí hiện tại của tác nhân trong môi trường
+
+Thông tin thu được từ cảm biến là cơ sở để tác nhân đưa ra quyết định hành động phù hợp.
+
+1.5 Phân loại môi trường
+
+Dựa trên các tiêu chí phân loại môi trường trong trí tuệ nhân tạo, môi trường Vacuum World được xác định như sau:
+
+Quan sát được một phần (Partially Observable):
+Tác nhân chỉ quan sát được trạng thái của ô hiện tại, không có thông tin đầy đủ về toàn bộ môi trường.
+
+Xác định (Deterministic):
+Kết quả của mỗi hành động là xác định và không có yếu tố ngẫu nhiên trong quá trình thực hiện hành động.
+
+Tĩnh (Static):
+Môi trường không thay đổi trạng thái nếu tác nhân không thực hiện hành động; bụi không tự sinh ra thêm theo thời gian.
+
+Rời rạc (Discrete):
+Môi trường được chia thành các ô riêng biệt, các hành động và thời gian diễn ra theo từng bước.
+
+Đơn tác nhân (Single-agent):
+Chỉ có một tác nhân duy nhất hoạt động trong môi trường.
