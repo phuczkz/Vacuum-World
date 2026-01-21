@@ -1,0 +1,1 @@
+doc/slide/linh ta linh tinh de day
