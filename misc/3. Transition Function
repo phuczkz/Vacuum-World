@@ -1,0 +1,94 @@
+======================================================================
+BÁO CÁO CHI TIẾT: TRANSITION FUNCTION (HÀM CHUYỂN TRẠNG THÁI)
+ĐỀ TÀI: VACUUM WORLD (ROBOT HÚT BỤI)
+======================================================================
+
+1. MÔ TẢ TRANSITION FUNCTION
+----------------------------------------------------------------------
+Trong bài toán Vacuum World (Môi trường lưới n x n), Hàm chuyển trạng 
+thái (Transition Function), ký hiệu là T, là quy tắc xác định sự thay 
+đổi của môi trường sau khi tác nhân thực thi hành động.
+
+Công thức tổng quát: T(s, a) -> s'
+
+Trong đó:
+* s (Current State - Trạng thái hiện tại): Được xác định bởi cặp:
+  - Vị trí Robot: P = (x, y)
+  - Tập hợp các ô chứa bụi: D_dirt (Ví dụ: {(1,1), (2,3)})
+
+* a (Action - Hành động): Thuộc tập hợp {Left, Right, Up, Down, Suck}
+
+* s' (Next State - Trạng thái kế tiếp): Trạng thái mới của môi trường.
+
+QUY TẮC CHUYỂN ĐỔI (LOGIC):
+
+A. Nhóm hành động di chuyển (Left, Right, Up, Down):
+   - Hệ thống tính toán tọa độ đích dự kiến (x', y').
+   - Hợp lệ: Nếu (x', y') nằm TRONG lưới, cập nhật vị trí mới cho Robot.
+     Danh sách bụi giữ nguyên.
+   - Va chạm: Nếu (x', y') nằm NGOÀI lưới (va tường), Robot giữ nguyên 
+     vị trí cũ. Danh sách bụi giữ nguyên.
+
+B. Hành động làm sạch (Suck):
+   - Kiểm tra vị trí hiện tại của Robot (x, y).
+   - Có bụi: Nếu (x, y) thuộc danh sách bụi -> Xóa (x, y) khỏi danh sách.
+     Vị trí Robot giữ nguyên.
+   - Không có bụi: Trạng thái giữ nguyên hoàn toàn (Hành động lãng phí).
+
+
+======================================================================
+2. BẢNG TRANSITION FUNCTION MINH HỌA
+----------------------------------------------------------------------
+GIẢ THIẾT MÔ PHỎNG:
+- Lưới kích thước: 3x3 (Tọa độ (1,1) là góc trên cùng bên trái).
+- Trạng thái bắt đầu: Robot tại (2,2); Bụi tại {(1,1), (3,3)}.
+
+BẢNG 10 BƯỚC MÔ PHỎNG:
+
++----+--------------------------------+-----------+--------------------------------+----------------------------------------+
+| STT| Trạng thái hiện tại (s)        | Hành động | Trạng thái kế tiếp (s')        | Giải thích (Logic thực thi)            |
+|    | (Vị trí Robot; Danh sách Bụi)  | (a)       | (Vị trí Robot; Danh sách Bụi)  |                                        |
++----+--------------------------------+-----------+--------------------------------+----------------------------------------+
+|  1 | Robot: (2,2); Bụi: {(1,1),(3,3)}| Up        | Robot: (1,2); Bụi: {(1,1),(3,3)}| DI CHUYỂN: Đi lên ô trống thành công.  |
+|    |                                |           |                                |                                        |
+|  2 | Robot: (1,2); Bụi: {(1,1),(3,3)}| Left      | Robot: (1,1); Bụi: {(1,1),(3,3)}| DI CHUYỂN: Vào ô bẩn, chưa hút bụi.    |
+|    |                                |           |                                |                                        |
+|  3 | Robot: (1,1); Bụi: {(1,1),(3,3)}| Suck      | Robot: (1,1); Bụi: {(3,3)}     | HÚT BỤI: Tại (1,1) có bụi -> Đã sạch.  |
+|    |                                |           |                                |                                        |
+|  4 | Robot: (1,1); Bụi: {(3,3)}     | Suck      | Robot: (1,1); Bụi: {(3,3)}     | HÚT BỤI: Ô (1,1) đã sạch -> Không đổi. |
+|    |                                |           |                                |                                        |
+|  5 | Robot: (1,1); Bụi: {(3,3)}     | Up        | Robot: (1,1); Bụi: {(3,3)}     | VA TƯỜNG: Biên Trên -> Đứng yên.       |
+|    |                                |           |                                |                                        |
+|  6 | Robot: (1,1); Bụi: {(3,3)}     | Left      | Robot: (1,1); Bụi: {(3,3)}     | VA TƯỜNG: Biên Trái -> Đứng yên.       |
+|    |                                |           |                                |                                        |
+|  7 | Robot: (1,1); Bụi: {(3,3)}     | Right     | Robot: (1,2); Bụi: {(3,3)}     | DI CHUYỂN: Sang phải thành công.       |
+|    |                                |           |                                |                                        |
+|  8 | Robot: (1,2); Bụi: {(3,3)}     | Down      | Robot: (2,2); Bụi: {(3,3)}     | DI CHUYỂN: Đi xuống thành công.        |
+|    |                                |           |                                |                                        |
+|  9 | Robot: (3,3); Bụi: {(3,3)}     | Suck      | Robot: (3,3); Bụi: {} (Rỗng)   | HÚT BỤI: Hút sạch bụi cuối cùng.       |
+|    | (Giả sử đã đi đến đây)         |           |                                |                                        |
+| 10 | Robot: (3,3); Bụi: {}          | Down      | Robot: (3,3); Bụi: {}          | VA TƯỜNG: Biên Dưới -> Đứng yên.       |
++----+--------------------------------+-----------+--------------------------------+----------------------------------------+
+
+
+======================================================================
+3. GIẢI THÍCH CÁCH ĐỌC BẢNG
+----------------------------------------------------------------------
+Để hiểu logic chuyển đổi trạng thái, ta đọc bảng theo quy trình:
+INPUT (Đầu vào) -> PROCESS (Xử lý) -> OUTPUT (Đầu ra).
+
+1. INPUT (Cột 2 & 3):
+   - Xác định Robot đang đứng ở đâu (x, y).
+   - Xác định danh sách các ô đang bẩn.
+   - Xác định hành động dự kiến (Đi hướng nào? Hay Hút bụi?).
+
+2. PROCESS (Xử lý Logic):
+   - Nếu là lệnh DI CHUYỂN: Kiểm tra xem hướng đó có đâm vào tường (biên
+     của lưới n x n) không.
+   - Nếu là lệnh HÚT BỤI: Kiểm tra xem tại chân Robot có bụi trong danh
+     sách hay không.
+
+3. OUTPUT (Cột 4 & 5):
+   - Cột 4 ghi nhận kết quả cuối cùng (Vị trí mới hoặc Danh sách bụi mới).
+   - Cột 5 giải thích lý do (Va tường, Hút thành công, hay Di chuyển thường).
+======================================================================
