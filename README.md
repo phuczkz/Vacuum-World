@@ -19,9 +19,29 @@ pip install -r requirements.txt
 
 ## Chạy ứng dụng
 
+### Cách 1: Chạy từ file main.py
+
 ```bash
-python app/vacuum_world_gui.py
+python main.py
 ```
+
+### Cách 2: Nếu lệnh `python` không hoạt động
+
+**Windows:**
+```bash
+py main.py
+```
+
+**macOS / Linux:**
+```bash
+python3 main.py
+```
+
+### Cách 3: Chạy từ VS Code
+
+1. Mở folder `vaccumsucksuck` trong VS Code
+2. Mở file `main.py`
+3. Nhấn **F5** hoặc **Ctrl+F5**
 
 ## Hướng dẫn sử dụng
 
