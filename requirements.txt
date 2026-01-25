@@ -1,0 +1,4 @@
+# Vacuum World - Robot Hút Bụi
+# Yêu cầu cài đặt
+
+pygame>=2.5.0
