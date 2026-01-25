@@ -49,33 +49,50 @@ class SearchAlgorithms:
         Breadth-First Search - Tìm kiếm theo chiều rộng
         
         Uninformed search, đảm bảo tìm được đường đi ngắn nhất (theo số bước).
+        Cấu trúc dữ liệu: Hàng đợi (Queue - FIFO)
         """
         start_time = time.time()
         
-        frontier = deque([(initial_state, [])])
-        explored = {initial_state}
+        # Kiểm tra nếu trạng thái ban đầu đã là đích
+        if initial_state.is_goal():
+            return SearchResult(
+                path=[],
+                nodes_expanded=0,
+                time_taken=time.time() - start_time,
+                memory_used=1,
+                success=True,
+                algorithm_name="BFS"
+            )
+        
+        frontier = deque([(initial_state, [])])  # Hàng đợi (FIFO)
+        frontier_set = {initial_state}  # Để kiểm tra child not in frontier
+        explored = set()  # Tập trạng thái đã duyệt
         nodes_expanded = 0
         max_frontier_size = 1
         
         while frontier:
             max_frontier_size = max(max_frontier_size, len(frontier))
-            state, path = frontier.popleft()
+            state, path = frontier.popleft()  # Lấy node đầu tiên ra
+            frontier_set.remove(state)
+            
+            explored.add(state)  # Thêm vào explored sau khi lấy ra
             nodes_expanded += 1
             
-            if state.is_goal():
-                return SearchResult(
-                    path=path,
-                    nodes_expanded=nodes_expanded,
-                    time_taken=time.time() - start_time,
-                    memory_used=max_frontier_size,
-                    success=True,
-                    algorithm_name="BFS"
-                )
-            
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
-                if next_state not in explored:
-                    explored.add(next_state)
+                # Chỉ thêm nếu chưa duyệt và chưa có trong hàng đợi
+                if next_state not in explored and next_state not in frontier_set:
+                    # Kiểm tra goal khi sinh node con (Early Goal Test)
+                    if next_state.is_goal():
+                        return SearchResult(
+                            path=path + [action],
+                            nodes_expanded=nodes_expanded,
+                            time_taken=time.time() - start_time,
+                            memory_used=max_frontier_size,
+                            success=True,
+                            algorithm_name="BFS"
+                        )
                     frontier.append((next_state, path + [action]))
+                    frontier_set.add(next_state)
         
         return SearchResult([], nodes_expanded, time.time() - start_time, 
                           max_frontier_size, False, "BFS")
@@ -86,27 +103,40 @@ class SearchAlgorithms:
         Depth-First Search - Tìm kiếm theo chiều sâu
         
         Uninformed search, không đảm bảo tối ưu, có giới hạn độ sâu.
+        Cấu trúc dữ liệu: Ngăn xếp (Stack - LIFO)
         """
         start_time = time.time()
         
-        frontier = [(initial_state, [])]
-        explored = set()
+        # Kiểm tra nếu trạng thái ban đầu đã là đích
+        if initial_state.is_goal():
+            return SearchResult(
+                path=[],
+                nodes_expanded=0,
+                time_taken=time.time() - start_time,
+                memory_used=1,
+                success=True,
+                algorithm_name="DFS"
+            )
+        
+        frontier = [(initial_state, [])]  # Ngăn xếp (LIFO)
+        frontier_set = {initial_state}  # Để kiểm tra child not in frontier
+        explored = set()  # Tập trạng thái đã duyệt
         nodes_expanded = 0
         max_frontier_size = 1
         
         while frontier:
             max_frontier_size = max(max_frontier_size, len(frontier))
-            state, path = frontier.pop()
+            state, path = frontier.pop()  # Lấy node mới nhất vừa thêm vào
+            frontier_set.discard(state)
             
+            # Giới hạn độ sâu để tránh vòng lặp vô tận
             if len(path) > max_depth:
                 continue
             
-            if state in explored:
-                continue
-            
-            explored.add(state)
+            explored.add(state)  # Thêm vào explored sau khi lấy ra
             nodes_expanded += 1
             
+            # Kiểm tra goal
             if state.is_goal():
                 return SearchResult(
                     path=path,
@@ -118,8 +148,10 @@ class SearchAlgorithms:
                 )
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
-                if next_state not in explored:
+                # Chỉ thêm nếu chưa duyệt và chưa có trong ngăn xếp
+                if next_state not in explored and next_state not in frontier_set:
                     frontier.append((next_state, path + [action]))
+                    frontier_set.add(next_state)
         
         return SearchResult([], nodes_expanded, time.time() - start_time, 
                           max_frontier_size, False, "DFS")

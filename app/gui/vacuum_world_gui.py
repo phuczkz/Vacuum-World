@@ -4,6 +4,7 @@ Giao diện đồ họa chính cho Vacuum World
 
 import pygame
 import random
+import os
 from typing import List, Optional, Callable, Dict, Tuple
 
 from app.models import Action, State, SearchResult
@@ -87,6 +88,11 @@ class VacuumWorldGUI:
         # Message
         self.message = ""
         self.message_time = 0
+        
+        # Load hình ảnh robot
+        self.robot_image = None
+        self.robot_image_scaled = None
+        self._load_robot_image()
         
         # Tạo buttons
         self.buttons: Dict[str, Button] = {}
@@ -199,6 +205,7 @@ class VacuumWorldGUI:
         self.calculate_dimensions()
         self.screen = pygame.display.set_mode((self.window_width, self.window_height), pygame.RESIZABLE)
         self.update_button_positions()
+        self._scale_robot_image()  # Cập nhật kích thước hình ảnh robot
     
     def regenerate_dirt_visuals(self):
         """Tạo lại vị trí random cho bụi"""
@@ -265,12 +272,50 @@ class VacuumWorldGUI:
                 pygame.draw.circle(self.screen, COLORS['BROWN'], 
                                  (center_x + scaled_ox, center_y + scaled_oy), scaled_r)
     
+    def _load_robot_image(self):
+        """Load hình ảnh robot từ file PNG"""
+        try:
+            # Đường dẫn đến hình ảnh
+            base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+            image_path = os.path.join(base_path, "assets", "vacuum.png")
+            
+            if os.path.exists(image_path):
+                self.robot_image = pygame.image.load(image_path).convert_alpha()
+                self._scale_robot_image()
+                print(f"✅ Đã tải hình ảnh robot từ: {image_path}")
+            else:
+                print(f"⚠️ Không tìm thấy hình ảnh tại: {image_path}")
+                print("   Sử dụng robot mặc định (vẽ bằng code)")
+                self.robot_image = None
+        except Exception as e:
+            print(f"❌ Lỗi khi tải hình ảnh: {e}")
+            self.robot_image = None
+    
+    def _scale_robot_image(self):
+        """Scale hình ảnh robot theo kích thước ô"""
+        if self.robot_image:
+            # Kích thước robot = 85% kích thước ô
+            new_size = int(self.cell_size * 0.85)
+            self.robot_image_scaled = pygame.transform.smoothscale(
+                self.robot_image, (new_size, new_size)
+            )
+    
     def draw_robot(self):
         """Vẽ robot hút bụi"""
         rx, ry = self.world.robot_pos
         center_x = self.grid_offset_x + rx * self.cell_size + self.cell_size // 2
         center_y = self.grid_offset_y + ry * self.cell_size + self.cell_size // 2
         
+        # Nếu có hình ảnh, dùng hình ảnh
+        if self.robot_image_scaled:
+            img_rect = self.robot_image_scaled.get_rect(center=(center_x, center_y))
+            self.screen.blit(self.robot_image_scaled, img_rect)
+        else:
+            # Fallback: Vẽ robot bằng code nếu không có hình ảnh
+            self._draw_robot_fallback(center_x, center_y)
+    
+    def _draw_robot_fallback(self, center_x, center_y):
+        """Vẽ robot bằng code (fallback khi không có hình ảnh)"""
         scale = self.cell_size / MAX_CELL_SIZE
         
         # Thân robot
