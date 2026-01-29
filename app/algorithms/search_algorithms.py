@@ -104,7 +104,7 @@ class SearchAlgorithms:
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
-                    search_tree.append((state.robot_pos, action, next_state.robot_pos))
+                    search_tree.append((state, action, next_state))
                 
                 if next_state not in explored and next_state not in frontier_set:
                     if next_state.is_goal():
@@ -194,7 +194,7 @@ class SearchAlgorithms:
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
-                    search_tree.append((state.robot_pos, action, next_state.robot_pos))
+                    search_tree.append((state, action, next_state))
                     
                 if next_state not in explored and next_state not in frontier_set:
                     frontier.append((next_state, path + [action]))
@@ -260,7 +260,7 @@ class SearchAlgorithms:
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
-                    search_tree.append((state.robot_pos, action, next_state.robot_pos))
+                    search_tree.append((state, action, next_state))
                 new_cost = cost + 1
                 if next_state not in explored or explored[next_state] > new_cost:
                     counter += 1
@@ -325,7 +325,7 @@ class SearchAlgorithms:
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
-                    search_tree.append((state.robot_pos, action, next_state.robot_pos))
+                    search_tree.append((state, action, next_state))
                 if next_state not in explored:
                     counter += 1
                     h = SearchAlgorithms.heuristic(next_state, grid_size)
@@ -395,7 +395,7 @@ class SearchAlgorithms:
             
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
-                    search_tree.append((state.robot_pos, action, next_state.robot_pos))
+                    search_tree.append((state, action, next_state))
                 new_g = g + 1
                 if next_state not in explored or explored[next_state] > new_g:
                     counter += 1

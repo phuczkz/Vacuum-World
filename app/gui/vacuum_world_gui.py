@@ -94,6 +94,7 @@ class VacuumWorldGUI:
         self.algorithm_warning: Optional[str] = None 
         self.search_progress = SearchProgress()  # Progress tracking
         self.show_search_viz = True  # Toggle for search visualization
+        self.search_initial_state: Optional[State] = None
         
         # Lưu vị trí bụi cố định để vẽ
         self.dirt_positions: Dict[Tuple[int, int], List[Tuple[int, int, int]]] = {}
@@ -728,6 +729,7 @@ class VacuumWorldGUI:
             # Start search in background thread
             self.is_searching = True
             self.pending_search_result = None
+            self.search_initial_state = initial_state
             self.search_thread = threading.Thread(
                 target=self._run_search_in_thread,
                 args=(algorithm_func, initial_state, self.world.grid_size),
@@ -767,8 +769,8 @@ class VacuumWorldGUI:
                 self.solution_path = self.search_result.path
                 self.current_step = 0
                 # Pre-calculate robot positions on solution path for tree visualization
-                # We need the initial state of the search, which is the current state
-                state_path = self.world.get_state_path(self.solution_path)
+                # We need the initial state of the search
+                state_path = self.world.get_state_path(self.solution_path, self.search_initial_state)
                 self.solution_states = state_path
                 self.solution_positions = {s.robot_pos for s in state_path}
                 self.show_message(f"Found path: {len(self.solution_path)} steps!")
@@ -833,136 +835,140 @@ class VacuumWorldGUI:
         self.solve(algorithm_func)
         
     def draw_tree_diagram(self, x, y, width, height):
-        """Draw a hierarchical tree diagram in the specified area"""
+        """Draw a hierarchical tree diagram focusing on the solution path window"""
         if not self.search_result or not hasattr(self.search_result, 'search_tree'):
             return
             
         edges = self.search_result.search_tree
         if not edges:
             return
-            
-        # Group by levels for layout
-        parents = {} # child -> parent
-        
-        # Build tree structure from edges
-        # Start from initial state (level 0)
-        # For visualization, we limit to first N nodes to keep it readable
-        max_edges = min(len(edges), 1800)  # chú ý phần này
-        visible_edges = edges[:max_edges]
 
-        # Always keep edges that belong to the found path so late nodes stay visible
-        if self.solution_positions:
-            path_edges = [e for e in edges
-                          if e[0] in self.solution_positions and e[2] in self.solution_positions]
-            seen = set()
-            merged = []
-            for e in visible_edges + path_edges:
-                if e not in seen:
-                    merged.append(e)
-                    seen.add(e)
-            visible_edges = merged
-        
-        # Extract unique positions and their levels
-        # Simplified: level is distance from root or just first encounter
-        if not visible_edges:
+        # Build children map from ALL edges
+        full_children_map = defaultdict(list)
+        for p, a, c in edges:
+            full_children_map[p].append((a, c))
+
+        if not hasattr(self, 'solution_states') or not self.solution_states or not self.solution_path:
             return
-            
-        root = visible_edges[0][0]
 
-        # Build adjacency while preserving the discovery order
-        children_map = defaultdict(list)
-        for p, a, c in visible_edges:
-            if c not in children_map[p]:
-                children_map[p].append(c)
-
-        # BFS to create tidy layers so siblings stay grouped under each parent
-        levels = []  # list of lists
-        queue = deque([(root, 0)])
-        seen = {root}
-        while queue:
-            node, depth = queue.popleft()
-            if len(levels) <= depth:
-                levels.append([])
-            levels[depth].append(node)
-            for child in children_map.get(node, []):
-                if child not in seen:
-                    seen.add(child)
-                    parents[child] = node
-                    queue.append((child, depth + 1))
+        n = len(self.solution_path)
+        k = getattr(self, 'current_step', 0)
         
-        # Calculate node positions
+        # Window of path indices for States: Sk-3 to Sk+3
+        start_idx = max(0, k - 3)
+        end_idx = min(n, k + 3)
+        
+        levels = [] # List of lists of (State, is_on_path, action_from_parent)
+        
+        # Level 0: solution_states[start_idx]
+        levels.append([(self.solution_states[start_idx], True, None)])
+        
+        for i in range(start_idx, end_idx):
+            s_curr = self.solution_states[i]
+            s_next = self.solution_states[i+1]
+            
+            level_nodes = []
+            seen_successors = set()
+            
+            # Put path successor first
+            path_action = self.solution_path[i]
+            level_nodes.append((s_next, True, path_action))
+            seen_successors.add(s_next)
+            
+            # Add other successors (branches)
+            for action, successor in full_children_map.get(s_curr, []):
+                if successor not in seen_successors:
+                    level_nodes.append((successor, False, action))
+                    seen_successors.add(successor)
+            
+            # Limit branches per level to avoid clutter
+            if len(level_nodes) > 5:
+                level_nodes = level_nodes[:5]
+                
+            levels.append(level_nodes)
+
+        # Coordinate calculation
         node_coords = {}
-        if not levels:
-            return
-
         total_levels = len(levels)
-        dy = height / max(total_levels, 1)
-        min_spacing = 38  # Keep nodes separated for readability
-        for depth, nodes in enumerate(levels):
-            if not nodes:
-                continue
-            spacing = max(width / (len(nodes) + 1), min_spacing)
-            used_width = spacing * (len(nodes) - 1)
-            if used_width <= width:
-                start_x = x + (width - used_width) / 2
-            else:
-                start_x = x + spacing  # fall back to left align with padding
-            node_y = y + dy * depth
-            for i, node in enumerate(nodes):
-                node_coords[node] = (start_x + spacing * i, node_y)
-                
-        # Draw nodes
-        for node, coord in node_coords.items():
-            # Draw larger nodes for labels
-            pygame.draw.circle(self.screen, COLORS['WHITE'], coord, 12)
-            pygame.draw.circle(self.screen, COLORS['BLACK'], coord, 12, 1)
-            
-            # Draw (x,y) label with bold look
-            label = self.font_small.render(f"{node[0]},{node[1]}", True, COLORS['BLACK'])
-            label_rect = label.get_rect(center=(coord[0], coord[1]))
-            self.screen.blit(label, label_rect)
-            
-        # Draw edges with actions
-        for p, a, c in visible_edges:
-            if p in node_coords and c in node_coords:
-                # Highlight if on solution path
-                is_on_path = False
-                if self.solution_positions and c in self.solution_positions and p in self.solution_positions:
-                     is_on_path = True
-                
-                # Check if this edge leads to the current robot position during playback
-                is_current_step = False
-                if self.solution_path and self.current_step > 0 and self.solution_states:
-                    if self.current_step < len(self.solution_states):
-                        curr_pos = self.solution_states[self.current_step].robot_pos
-                        prev_pos = self.solution_states[self.current_step - 1].robot_pos
-                        
-                        if curr_pos == c and prev_pos == p:
-                            is_current_step = True
-                
-                start_pos = node_coords[p]
-                end_pos = node_coords[c]
-                
-                color = COLORS['RED'] if is_current_step else (COLORS['BLUE'] if is_on_path else COLORS['GRAY'])
-                thickness = 4 if is_current_step else (2 if is_on_path else 1)
-                pygame.draw.line(self.screen, color, start_pos, end_pos, thickness)
-                
-                # Draw action label on the middle of the edge
-                mid_x = (start_pos[0] + end_pos[0]) // 2
-                mid_y = (start_pos[1] + end_pos[1]) // 2
-                
-                action_text = a.name[0] if hasattr(a, 'name') else str(a)[0] # Get first letter of action
-                action_label = self.font_small.render(action_text, True, color)
-                # Offset slightly so it doesn't sit exactly on the line
-                self.screen.blit(action_label, (mid_x + 6, mid_y - 12))
+        if total_levels == 0: return
+        
+        dy = height / (total_levels + 0.5)
+        
+        for d, nodes in enumerate(levels):
+            node_y = y + dy * (d + 0.5)
+            spacing = width / (len(nodes) + 1)
+            for j, (state, on_path, action) in enumerate(nodes):
+                node_x = x + spacing * (j + 1)
+                node_coords[state] = (node_x, node_y)
 
-        # Re-draw active node in red if it exists
-        if self.solution_path and self.current_step >= 0 and self.solution_states:
-            if self.current_step < len(self.solution_states):
-                current_pos = self.solution_states[self.current_step].robot_pos
-                if current_pos in node_coords:
-                    coord = node_coords[current_pos]
-                    pygame.draw.circle(self.screen, COLORS['RED'], coord, 15, 3) # Red highlight ring
+        # Draw "..." above start_idx if not root
+        if start_idx > 0:
+            root_state = self.solution_states[start_idx]
+            if root_state in node_coords:
+                cx, cy = node_coords[root_state]
+                pygame.draw.line(self.screen, COLORS['GRAY'], (cx, cy - 15), (cx, cy - 25), 1)
+                dot_text = self.font_small.render("...", True, COLORS['DARK_GRAY'])
+                self.screen.blit(dot_text, (cx - 5, cy - 40))
+
+        # Draw edges
+        for d in range(1, total_levels):
+            # Parent for level d is a node at level d-1. 
+            # In our case, every node at level d is a child of solution_states[start_idx + d - 1]
+            parent = self.solution_states[start_idx + d - 1]
+            if parent not in node_coords: continue
+            
+            for child, on_path, action in levels[d]:
+                if child not in node_coords: continue
+                
+                is_current_edge = False
+                if k > 0 and k <= n:
+                    if parent == self.solution_states[k-1] and child == self.solution_states[k]:
+                        is_current_edge = True
+                
+                color = COLORS['RED'] if is_current_edge else (COLORS['BLUE'] if on_path else COLORS['GRAY'])
+                thickness = 4 if is_current_edge else (2 if on_path else 1)
+                
+                pygame.draw.line(self.screen, color, node_coords[parent], node_coords[child], thickness)
+                
+                # Action label
+                mid_x = (node_coords[parent][0] + node_coords[child][0]) / 2
+                mid_y = (node_coords[parent][1] + node_coords[child][1]) / 2
+                act_str = action.name[0] if hasattr(action, 'name') else str(action)[0]
+                act_label = self.font_small.render(act_str, True, color)
+                self.screen.blit(act_label, (mid_x + 5, mid_y - 12))
+
+        # Draw nodes
+        for d, nodes in enumerate(levels):
+            for state, on_path, action in nodes:
+                coord = node_coords[state]
+                is_current = (state == self.solution_states[k])
+                
+                radius = 16 if is_current else 13
+                pygame.draw.circle(self.screen, COLORS['WHITE'], coord, radius)
+                
+                if is_current:
+                    pygame.draw.circle(self.screen, COLORS['RED'], coord, radius, 3)
+                elif on_path:
+                    pygame.draw.circle(self.screen, COLORS['BLUE'], coord, radius, 2)
+                else:
+                    pygame.draw.circle(self.screen, COLORS['BLACK'], coord, radius, 1)
+                    # Branch cutoff "..."
+                    if state in full_children_map and len(full_children_map[state]) > 0:
+                         dot_text = self.font_small.render("...", True, COLORS['DARK_GRAY'])
+                         self.screen.blit(dot_text, (coord[0] - 5, coord[1] + radius + 2))
+                
+                label_text = f"{state.robot_pos[0]},{state.robot_pos[1]}"
+                label = self.font_small.render(label_text, True, COLORS['BLACK'])
+                label_rect = label.get_rect(center=coord)
+                self.screen.blit(label, label_rect)
+
+        # Draw "..." below last path node if not goal
+        if end_idx < n:
+            last_path_state = self.solution_states[end_idx]
+            if last_path_state in node_coords:
+                 cx, cy = node_coords[last_path_state]
+                 dot_text = self.font_small.render("...", True, COLORS['DARK_GRAY'])
+                 self.screen.blit(dot_text, (cx - 5, cy + 20))
 
         
     def draw_search_tree(self):
