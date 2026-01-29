@@ -847,7 +847,7 @@ class VacuumWorldGUI:
         # Build tree structure from edges
         # Start from initial state (level 0)
         # For visualization, we limit to first N nodes to keep it readable
-        max_edges = min(len(edges), 1800)  # adaptive cap: show more on larger boards
+        max_edges = min(len(edges), 1800)  # chú ý phần này
         visible_edges = edges[:max_edges]
 
         # Always keep edges that belong to the found path so late nodes stay visible
