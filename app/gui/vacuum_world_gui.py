@@ -850,6 +850,21 @@ class VacuumWorldGUI:
     def run_with_algorithm(self, algorithm_func: Callable):
         """Chạy tìm kiếm với thuật toán được truyền vào"""
         self.solve(algorithm_func)
+
+    def calculate_metric_value(self, state, depth, algo_name):
+        """Estimate the metric value (cost/heuristic) for faked visualization nodes"""
+        base_algo = algo_name.split(' (')[0]
+        if base_algo in ["BFS", "DFS"]:
+            return depth
+        if base_algo == "UCS":
+            return depth # Cost is 1 per step 
+        if base_algo == "Greedy":
+            from app.algorithms.search_algorithms import SearchAlgorithms
+            return SearchAlgorithms.heuristic(state, self.world.grid_size)
+        if base_algo == "A*":
+            from app.algorithms.search_algorithms import SearchAlgorithms
+            return depth + SearchAlgorithms.heuristic(state, self.world.grid_size)
+        return None
         
     def draw_tree_diagram(self, x, y, width, height):
         """Draw a hierarchical tree diagram from Step 0 downwards"""
@@ -861,8 +876,10 @@ class VacuumWorldGUI:
             return
 
         full_children_map = defaultdict(list)
-        for p, a, c in edges:
-            full_children_map[p].append((a, c))
+        for entry in edges:
+            p, a, c = entry[0], entry[1], entry[2]
+            val = entry[3] if len(entry) > 3 else None
+            full_children_map[p].append((a, c, val))
 
         action_order = {
             Action.LEFT: 0,
@@ -876,23 +893,7 @@ class VacuumWorldGUI:
             return
 
         n = len(self.solution_path)
-        
-        # Inject solution path edges manually to ensure the tree is never cut off
-        # even if the TREE_EDGE_LIMIT was reached by the algorithm.
-        for i in range(n):
-            s_p = self.solution_states[i]
-            s_c = self.solution_states[i+1]
-            act = self.solution_path[i]
-            # Add to map if not present
-            found = False
-            for a, succ in full_children_map.get(s_p, []):
-                if succ == s_c and a == act:
-                    found = True
-                    break
-            if not found:
-                full_children_map[s_p].append((act, s_c))
-
-        n = len(self.solution_path)
+        algo_name = self.search_result.algorithm_name
         k = getattr(self, 'current_step', 0)
         
         # Build levels for the ENTIRE path from Step 0
@@ -903,7 +904,9 @@ class VacuumWorldGUI:
             'state': self.solution_states[0],
             'on_path': True,
             'action': None,
-            'slot': 2
+            'slot': 2,
+            'is_fake': False,
+            'value': None
         }])
         
         for i in range(n):
@@ -912,8 +915,9 @@ class VacuumWorldGUI:
             path_action = self.solution_path[i] # The action leading to it
             
             success_map = {}
-            # Group successors by their slot
-            for action, successor in full_children_map.get(s_curr, []):
+            
+            # 1. Start with what the algorithm actually found/explored
+            for action, successor, val in full_children_map.get(s_curr, []):
                 slot = action_order.get(action, 2)
                 is_on_path = (action == path_action and successor == s_path_next)
                 
@@ -921,8 +925,28 @@ class VacuumWorldGUI:
                     'state': successor,
                     'on_path': is_on_path,
                     'action': action,
-                    'slot': slot
+                    'slot': slot,
+                    'value': val,
+                    'is_fake': False
                 }
+            
+            # 2. Fill in the gaps for physical actions that weren't explored or recorded
+            # This ensures the tree visualization is always "full" and consistent.
+            from app.core import VacuumWorld
+            for action, successor in VacuumWorld.get_successors(s_curr, self.world.grid_size):
+                slot = action_order.get(action, 2)
+                if slot not in success_map:
+                    is_on_path = (action == path_action and successor == s_path_next)
+                    # If it's the missing path node, inject it. Else, it's a ghost branch.
+                    val = self.calculate_metric_value(successor, i + 1, algo_name)
+                    success_map[slot] = {
+                        'state': successor,
+                        'on_path': is_on_path,
+                        'action': action,
+                        'slot': slot,
+                        'value': val,
+                        'is_fake': True
+                    }
             
             # Sort level nodes by slot
             level_nodes = [success_map[s] for s in sorted(success_map.keys())]
@@ -989,8 +1013,12 @@ class VacuumWorldGUI:
 
                 # Edge is "current" if it leads to the current step's target
                 is_current_edge = (d == k and node_data['on_path'] and k > 0)
+
+                # Base colors
+                path_color = COLORS['BLUE'] # Always sharp if on path
+                branch_color = (230, 230, 230) if node_data['is_fake'] else COLORS['GRAY']
                 
-                color = COLORS['RED'] if is_current_edge else (COLORS['BLUE'] if node_data['on_path'] else COLORS['GRAY'])
+                color = COLORS['RED'] if is_current_edge else (path_color if node_data['on_path'] else branch_color)
                 thickness = 6 if is_current_edge else (3 if node_data['on_path'] else 1)
                 
                 pygame.draw.line(self.screen, color, parent_coord, child_coord, thickness)
@@ -998,10 +1026,13 @@ class VacuumWorldGUI:
                 # Action label - place near the child for better reading
                 mid_x = (parent_coord[0] + child_coord[0]) / 2 + 8
                 mid_y = (parent_coord[1] + child_coord[1]) / 2 - 10
+                
                 act_str = node_data['action'].name if hasattr(node_data['action'], 'name') else str(node_data['action'])
                 if len(act_str) > 5: act_str = act_str[0]
                 
-                self.screen.blit(self.font_medium.render(act_str, True, color), (mid_x, mid_y))
+                # Labels for path stay sharp
+                label_color = (200, 200, 200) if (node_data['is_fake'] and not node_data['on_path']) else color
+                self.screen.blit(self.font_medium.render(act_str, True, label_color), (mid_x, mid_y))
 
         # Draw nodes
         for d, nodes in enumerate(levels):
@@ -1024,16 +1055,58 @@ class VacuumWorldGUI:
                 elif on_path:
                     pygame.draw.circle(self.screen, COLORS['BLUE'], coord, radius, 3)
                 else:
-                    pygame.draw.circle(self.screen, COLORS['BLACK'], coord, radius, 1)
+                    color = (220, 220, 220) if node_data['is_fake'] else COLORS['BLACK']
+                    pygame.draw.circle(self.screen, color, coord, radius, 1)
                     if state in full_children_map and len(full_children_map[state]) > 0:
                          self.screen.blit(self.font_small.render("...", True, COLORS['DARK_GRAY']), (coord[0] - 5, coord[1] + radius + 2))
                 
                 label_text = f"{state.robot_pos[0]},{state.robot_pos[1]}"
                 font = self.font_medium if is_current else self.font_small
-                label = font.render(label_text, True, COLORS['BLACK'])
+                # On path labels stay sharp
+                label_color = (200, 200, 200) if (node_data['is_fake'] and not node_data['on_path']) else COLORS['BLACK']
+                label = font.render(label_text, True, label_color)
                 self.screen.blit(label, label.get_rect(center=coord))
+                
+                # Draw evaluation value if present
+                if 'value' in node_data and node_data['value'] is not None:
+                    val_str = str(node_data['value'])
+                    path_val_color = COLORS['PURPLE'] # Keep path purple
+                    branch_val_color = (230, 230, 230) if node_data['is_fake'] else COLORS['DARK_GRAY']
+                    
+                    val_color = path_val_color if on_path else branch_val_color
+                    val_lbl = self.font_small.render(val_str, True, val_color)
+                    # Move to above the node
+                    val_rect = val_lbl.get_rect(center=(coord[0], coord[1] - radius - 12))
+                    self.screen.blit(val_lbl, val_rect)
 
         self.screen.set_clip(old_clip)
+
+        # Legend explaining values
+        legends = {
+            "BFS": "Number: Depth",
+            "DFS": "Number: Depth",
+            "UCS": "Number: Cost (g)",
+            "Greedy": "Number: Heuristic (h)",
+            "A*": "Number: f = g + h",
+            "Nearest Neighbor": "Number: Dist to Target",
+            "Ghost branches": "Infilled for visualization"
+        }
+        
+        algo_name = self.search_result.algorithm_name
+        # Strip suffix like (timeout)
+        base_algo = algo_name.split(' (')[0]
+        legend_text = legends.get(base_algo, "Node metrics")
+        
+        # Draw Legend Box
+        leg_padding = 10
+        leg_text_surface = self.font_small.render(legend_text, True, COLORS['PURPLE'])
+        leg_rect = leg_text_surface.get_rect(topright=(x + width - leg_padding, y + leg_padding))
+        
+        # Subtle background for legend
+        bg_rect = leg_rect.inflate(10, 6)
+        pygame.draw.rect(self.screen, (240, 240, 245), bg_rect, border_radius=4)
+        pygame.draw.rect(self.screen, COLORS['GRAY'], bg_rect, 1, border_radius=4)
+        self.screen.blit(leg_text_surface, leg_rect)
         
         # Step counter overlay
         step_text = self.font_medium.render(f"Step {k} / {n}", True, COLORS['BLUE'])

@@ -53,7 +53,7 @@ class SearchResult:
         self.success = success
         self.algorithm_name = algorithm_name
         self.explored_nodes = explored_nodes or []
-        self.search_tree = search_tree or []  # List of (parent_state, action, child_state)
+        self.search_tree = search_tree or []  # List of (parent_state, action, child_state, [optional_value])
     
     def __repr__(self):
         return (f"SearchResult(algo={self.algorithm_name}, success={self.success}, "

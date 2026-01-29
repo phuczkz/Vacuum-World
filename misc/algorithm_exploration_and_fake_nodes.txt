@@ -1,0 +1,70 @@
+ALGORITHM EXPLORATION AND GUI "GHOST" NODES
+============================================
+
+This document explains why the Vacuum World GUI sometimes needs to generate "fake" or "ghost" nodes
+to complete the search tree visualization, and why different algorithms stop exploring branches.
+
+1. THE GENERAL REASON: "EAGER" GOAL DETECTION
+--------------------------------------------
+Most search algorithms are designed to be efficient. As soon as they "see" the goal state, they 
+stop and return the path. 
+
+In many implementations (including ours), the algorithm checks for the goal when it is generating 
+SUCCESSORS of a node. If it finds the goal, it doesn't bother generating the rest of the siblings 
+or expanding that node's cousins. This results in a "ragged" tree where the final decision layers 
+are missing their alternative branches.
+
+2. ALGORITHM-SPECIFIC BEHAVIORS
+-------------------------------
+
+A* SEARCH & GREEDY SEARCH:
+- Why nodes are missing: These are "best-first" searches. They use a Priority Queue. 
+- The moment the algorithm "pops" the goal node from the queue, it terminates immediately. 
+- It likely leaves many other nodes in the queue "unexpanded." 
+- In the GUI, this looks like the last few steps only have one branch (the winner), while the 
+  other directions were technically possible but never checked because the robot already found 
+  the prize.
+
+BFS (BREADTH-FIRST SEARCH):
+- Why nodes are missing: BFS finds the shallowest goal. 
+- It explores level-by-level. Once it finds the goal at level N, it stops. 
+- It might not have finished checking all other nodes at level N, so those branches appear 
+  truncated in the raw algorithm output.
+
+DFS (DEPTH-FIRST SEARCH):
+- Why nodes are missing: DFS is the "luckiest" or "unluckiest" algorithm. 
+- It follows one path to the bottom. If it hit the goal, it ignores the entire rest of the 
+  search space. 
+- This creates a tree that is almost entirely "ghost" branches except for the one deep 
+  spine it explored.
+
+UCS (UNIFORM COST SEARCH):
+- Why nodes are missing: Similar to A*, but based purely on cost. 
+- It stops the moment the cheapest path to a goal is confirmed.
+
+NEAREST NEIGHBOR (GREEDY NN):
+- Why nodes are missing: Not a search algorithm at all! 
+- It is a "procedural" or "constructive" heuristic. It just calculates: "Where is the dirt? Go there."
+- It never looks at alternative directions (Up/Down/Left/Right) unless they are part of its 
+  direct path to the chosen dirt.
+
+3. THE ROLE OF THE GUI "GHOST" NODES
+-----------------------------------
+The GUI infills these missing branches (drawn in dimmer colors) for two reasons:
+
+A. Visual Consistency: The user expects a "Vacuum World" to always have the possibility of moving 
+   in 4 directions (or Sucking). If the tree only showed one branch, it wouldn't look like a 
+   "decision tree."
+B. Comparison: By seeing the ghost branches (and their associated costs/heuristics), the user 
+   can see *what else* the robot could have done and *why* those choices were worse (e.g., they 
+   had a higher H-value or G-cost).
+
+4. THE "NODE LIMIT" FACTOR
+-------------------------
+To prevent the application from freezing on large maps, we set a TREE_EDGE_LIMIT (e.g., 20,000 edges).
+If an algorithm is very "chatty" and explores a massive number of states, it might hit this 
+limit before finishing the search tree data. 
+
+In these cases, the GUI uses the guaranteed solution path to "backfill" the tree so you 
+always have a complete visualization of the journey, even if the algorithm's internal 
+recording was cut short for performance.

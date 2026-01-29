@@ -45,7 +45,9 @@ def greedy_nearest_neighbor(initial_state: State, grid_size: int, progress=None)
             nonlocal current_state, nodes_expanded
             # Add all possible actions to tree for visualization
             for act, succ in VacuumWorld.get_successors(current_state, grid_size):
-                search_tree.append((current_state, act, succ))
+                # Distance to the target dirt for this successor
+                dist = abs(succ.robot_pos[0] - target_x) + abs(succ.robot_pos[1] - target_y)
+                search_tree.append((current_state, act, succ, dist))
             
             explored_nodes.append(current_state.robot_pos)
             current_state = next_s
@@ -91,7 +93,7 @@ def greedy_nearest_neighbor(initial_state: State, grid_size: int, progress=None)
         time_taken=time.time() - start_time,
         memory_used=len(initial_state.dirt_set),
         success=True,
-        algorithm_name="Greedy NN",
+        algorithm_name="Nearest Neighbor",
         explored_nodes=explored_nodes,
         search_tree=search_tree
     )
