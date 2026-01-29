@@ -16,6 +16,9 @@ from app.models import State, Action, SearchResult
 from app.core import VacuumWorld
 from .greedy_nn import greedy_nearest_neighbor
 
+# Limits for search-tree visualization
+TREE_EDGE_LIMIT = 8000
+
 # Performance limits to prevent infinite search on large boards
 MAX_TIME_SECONDS = 30.0  # Maximum time allowed for search
 MAX_NODES = 1000000  # Maximum nodes to expand
@@ -75,7 +78,7 @@ class SearchAlgorithms:
         nodes_expanded = 0
         max_frontier_size = 1
         search_tree = []  # List of (parent_pos, action, child_pos)
-        tree_node_limit = 2000  # Only capture first 2000 edges for visualization performance
+        tree_node_limit = TREE_EDGE_LIMIT  # Capture more edges for larger boards
         
         while frontier:
             # Check timeout and node limit
@@ -102,11 +105,8 @@ class SearchAlgorithms:
             for action, next_state in VacuumWorld.get_successors(state, grid_size):
                 if len(search_tree) < tree_node_limit:
                     search_tree.append((state.robot_pos, action, next_state.robot_pos))
-                    
+                
                 if next_state not in explored and next_state not in frontier_set:
-                    if len(search_tree) < tree_node_limit:
-                        search_tree.append((state.robot_pos, action, next_state.robot_pos))
-                        
                     if next_state.is_goal():
                         return SearchResult(
                             path=path + [action],
@@ -153,7 +153,7 @@ class SearchAlgorithms:
         nodes_expanded = 0
         max_frontier_size = 1
         search_tree = []
-        tree_node_limit = 2000
+        tree_node_limit = TREE_EDGE_LIMIT
         
         while frontier:
             # Check timeout and node limit
@@ -218,7 +218,7 @@ class SearchAlgorithms:
         nodes_expanded = 0
         max_frontier_size = 1
         search_tree = []
-        tree_node_limit = 2000
+        tree_node_limit = TREE_EDGE_LIMIT
         
         while frontier:
             # Check timeout and node limit
@@ -287,7 +287,7 @@ class SearchAlgorithms:
         nodes_expanded = 0
         max_frontier_size = 1
         search_tree = []
-        tree_node_limit = 2000
+        tree_node_limit = TREE_EDGE_LIMIT
         
         while frontier:
             # Check timeout and node limit
@@ -353,7 +353,7 @@ class SearchAlgorithms:
         nodes_expanded = 0
         max_frontier_size = 1
         search_tree = []
-        tree_node_limit = 2000
+        tree_node_limit = TREE_EDGE_LIMIT
         
         while frontier:
             # Check timeout and node limit

@@ -6,6 +6,7 @@ import pygame
 import random
 import os
 import threading
+from collections import defaultdict, deque
 from typing import List, Optional, Callable, Dict, Tuple, Set
 
 from app.models import Action, State, SearchResult, SearchProgress
@@ -841,14 +842,25 @@ class VacuumWorldGUI:
             return
             
         # Group by levels for layout
-        levels = {} # depth -> list of robot positions
         parents = {} # child -> parent
         
         # Build tree structure from edges
         # Start from initial state (level 0)
         # For visualization, we limit to first N nodes to keep it readable
-        max_edges = 300 
+        max_edges = min(len(edges), 1800)  # adaptive cap: show more on larger boards
         visible_edges = edges[:max_edges]
+
+        # Always keep edges that belong to the found path so late nodes stay visible
+        if self.solution_positions:
+            path_edges = [e for e in edges
+                          if e[0] in self.solution_positions and e[2] in self.solution_positions]
+            seen = set()
+            merged = []
+            for e in visible_edges + path_edges:
+                if e not in seen:
+                    merged.append(e)
+                    seen.add(e)
+            visible_edges = merged
         
         # Extract unique positions and their levels
         # Simplified: level is distance from root or just first encounter
@@ -856,28 +868,48 @@ class VacuumWorldGUI:
             return
             
         root = visible_edges[0][0]
-        levels[0] = [root]
-        pos_to_level = {root: 0}
-        
+
+        # Build adjacency while preserving the discovery order
+        children_map = defaultdict(list)
         for p, a, c in visible_edges:
-            if p in pos_to_level:
-                l = pos_to_level[p] + 1
-                if c not in pos_to_level:
-                    pos_to_level[c] = l
-                    if l not in levels: levels[l] = []
-                    levels[l].append(c)
-                    parents[c] = p
+            if c not in children_map[p]:
+                children_map[p].append(c)
+
+        # BFS to create tidy layers so siblings stay grouped under each parent
+        levels = []  # list of lists
+        queue = deque([(root, 0)])
+        seen = {root}
+        while queue:
+            node, depth = queue.popleft()
+            if len(levels) <= depth:
+                levels.append([])
+            levels[depth].append(node)
+            for child in children_map.get(node, []):
+                if child not in seen:
+                    seen.add(child)
+                    parents[child] = node
+                    queue.append((child, depth + 1))
         
         # Calculate node positions
         node_coords = {}
-        max_l = max(levels.keys()) if levels else 0
-        if max_l == 0: return
+        if not levels:
+            return
 
-        dy = height / (max_l + 1)
-        for l, nodes in levels.items():
-            dx = width / (len(nodes) + 1)
+        total_levels = len(levels)
+        dy = height / max(total_levels, 1)
+        min_spacing = 38  # Keep nodes separated for readability
+        for depth, nodes in enumerate(levels):
+            if not nodes:
+                continue
+            spacing = max(width / (len(nodes) + 1), min_spacing)
+            used_width = spacing * (len(nodes) - 1)
+            if used_width <= width:
+                start_x = x + (width - used_width) / 2
+            else:
+                start_x = x + spacing  # fall back to left align with padding
+            node_y = y + dy * depth
             for i, node in enumerate(nodes):
-                node_coords[node] = (x + dx * (i + 1), y + dy * l)
+                node_coords[node] = (start_x + spacing * i, node_y)
                 
         # Draw nodes
         for node, coord in node_coords.items():
