@@ -17,7 +17,7 @@ from .config import (COLORS, MIN_CELL_SIZE, MAX_CELL_SIZE, SIDEBAR_WIDTH,
                      BUTTON_WIDTH, BUTTON_HEIGHT, BUTTON_SPACING)
 from .components import Button
 
-ASSET_ROBOT = "bong1.jpg"
+ASSET_ROBOT = "Vacuum.png"
 
 class VacuumWorldGUI:
     """
