@@ -87,6 +87,8 @@ class VacuumWorldGUI:
         self.search_result: Optional[SearchResult] = None
         self.solution_positions: Set[Tuple[int, int]] = set() # Robot positions on solution path
         self.solution_states: List[State] = [] # Sequence of states in solution
+        self.solution_step_points: List[int] = [] # Points gained at each step
+        self.total_path_points: int = 0 # Total points for the whole path
 
         
         # Threading state
@@ -437,9 +439,9 @@ class VacuumWorldGUI:
         
         # Line 1: Status
         if info_width < 280:
-            status_text = f"({self.world.robot_pos[0]},{self.world.robot_pos[1]}) | Dirt:{len(self.world.dirt_set)} | Steps:{self.world.total_cost}"
+            status_text = f"({self.world.robot_pos[0]},{self.world.robot_pos[1]}) | D:{len(self.world.dirt_set)} | S:{self.world.total_cost} | P:{self.world.performance_points}"
         else:
-            status_text = f"Robot: {self.world.robot_pos} | Dirt: {len(self.world.dirt_set)} | Steps: {self.world.total_cost} | Algo: {self.selected_algorithm}"
+            status_text = f"Robot: {self.world.robot_pos} | Dirt: {len(self.world.dirt_set)} | Steps: {self.world.total_cost} | Points: {self.world.performance_points} | Algo: {self.selected_algorithm}"
         text = self.font_small.render(status_text, True, COLORS['BLACK'])
         self.screen.blit(text, (self.grid_offset_x + 5, bottom_y))
         
@@ -462,10 +464,11 @@ class VacuumWorldGUI:
             result_y = bottom_y + 18
             if self.search_result.success:
                 if info_width < 280:
-                    result_text = f"{len(self.search_result.path)}s | N:{self.search_result.nodes_expanded} | {self.search_result.time_taken*1000:.0f}ms"
+                    result_text = f"{len(self.search_result.path)}s | N:{self.search_result.nodes_expanded} | P:{self.total_path_points} | {self.search_result.time_taken*1000:.0f}ms"
                 else:
                     result_text = (f"Found: {len(self.search_result.path)} steps | "
                                  f"Nodes: {self.search_result.nodes_expanded} | "
+                                 f"Path Points: {self.total_path_points} | "
                                  f"Time: {self.search_result.time_taken*1000:.1f}ms")
                 color = COLORS['GREEN']
             else:
@@ -790,10 +793,26 @@ class VacuumWorldGUI:
                 state_path = self.world.get_state_path(self.solution_path, self.search_initial_state)
                 self.solution_states = state_path
                 self.solution_positions = {s.robot_pos for s in state_path}
+                
+                # Calculate points for each step and total
+                self.solution_step_points = []
+                total = 0
+                for i in range(len(self.solution_path)):
+                    s_curr = state_path[i]
+                    s_next = state_path[i+1]
+                    p = -1
+                    if len(s_next.dirt_set) < len(s_curr.dirt_set):
+                        p += 10
+                    self.solution_step_points.append(p)
+                    total += p
+                self.total_path_points = total
+                
                 self.show_message(f"Found path: {len(self.solution_path)} steps!")
             else:
                 self.solution_path = []
                 self.solution_states = []
+                self.solution_step_points = []
+                self.total_path_points = 0
                 self.solution_positions = set()
                 self.show_message("Path not found!")
         
@@ -988,7 +1007,14 @@ class VacuumWorldGUI:
                 is_active = (d == k)
                 color = COLORS['RED'] if is_active else COLORS['DARK_GRAY']
                 step_lbl = self.font_small.render(f"Step {d}", True, color)
-                self.screen.blit(step_lbl, (meter_x + 12, node_y - 8))
+                self.screen.blit(step_lbl, (meter_x + 12, node_y - 14))
+                
+                # Point for this step
+                if d > 0 and d <= len(self.solution_step_points):
+                    pts = self.solution_step_points[d-1]
+                    pts_color = (0, 150, 0) if pts > 0 else (200, 0, 0)
+                    pts_lbl = self.font_small.render(f"{pts:+} pts", True, pts_color)
+                    self.screen.blit(pts_lbl, (meter_x + 12, node_y + 2))
 
         # Draw edges
         for d in range(1, total_levels):
@@ -1089,7 +1115,8 @@ class VacuumWorldGUI:
             "Greedy": "Number: Heuristic (h)",
             "A*": "Number: f = g + h",
             "Nearest Neighbor": "Number: Dist to Target",
-            "Ghost branches": "Infilled for visualization"
+            "Ghost branches": "Infilled for visualization",
+            "Points Rule": "Action: -1, Clean: +10"
         }
         
         algo_name = self.search_result.algorithm_name

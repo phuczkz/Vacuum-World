@@ -24,6 +24,7 @@ class VacuumWorld:
         self.action_history: List[Action] = []
         self.path_history: List[Tuple[int, int]] = []
         self.total_cost = 0
+        self.performance_points = 0
         
     def reset(self):
         """Reset môi trường"""
@@ -32,12 +33,14 @@ class VacuumWorld:
         self.action_history = []
         self.path_history = [(0, 0)]
         self.total_cost = 0
+        self.performance_points = 0
     
     def set_robot_position(self, pos: Tuple[int, int]):
         """Đặt vị trí robot"""
         if 0 <= pos[0] < self.grid_size and 0 <= pos[1] < self.grid_size:
             self.robot_pos = pos
             self.path_history = [pos]
+            self.performance_points = 0
     
     def add_dirt(self, pos: Tuple[int, int]):
         """Thêm bụi"""
@@ -56,12 +59,13 @@ class VacuumWorld:
             self.add_dirt(pos)
     
     def random_dirt(self, probability: float = 0.3):
-        """Phân bố bụi ngẫu nhiên"""
+        """Phân bỏ bụi ngẫu nhiên"""
         self.dirt_set.clear()
         for x in range(self.grid_size):
             for y in range(self.grid_size):
                 if random.random() < probability:
                     self.dirt_set.add((x, y))
+        self.performance_points = 0
     
     def get_valid_actions(self) -> List[Action]:
         """Lấy danh sách hành động hợp lệ"""
@@ -89,6 +93,7 @@ class VacuumWorld:
         """
         x, y = self.robot_pos
         new_x, new_y = x, y
+        points_gained = -1 # Mọi hành động đều tốn 1 điểm
         
         if action == Action.UP:
             new_y = max(0, y - 1)
@@ -101,6 +106,7 @@ class VacuumWorld:
         elif action == Action.SUCK:
             if self.robot_pos in self.dirt_set:
                 self.dirt_set.remove(self.robot_pos)
+                points_gained += 10 # Hút bụi thành công được +10 điểm
         
         old_pos = self.robot_pos
         self.robot_pos = (new_x, new_y)
@@ -109,6 +115,7 @@ class VacuumWorld:
         if self.robot_pos != old_pos:
             self.path_history.append(self.robot_pos)
         self.total_cost += 1
+        self.performance_points += points_gained
         
         return len(self.dirt_set) == 0
     
